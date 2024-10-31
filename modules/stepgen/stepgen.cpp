@@ -4,6 +4,10 @@
 //#include "../boardconfig.h"
 
 
+// If undef then we use bresenham
+#undef USE_FLOAT_DDS
+
+
 /***********************************************************************
                 MODULE CONFIGURATION AND CREATION FROM JSON     
 ************************************************************************/
@@ -56,6 +60,8 @@ Stepgen::Stepgen(int32_t threadFreq, int jointNumber, std::string step, std::str
 	this->mask = 1 << this->jointNumber;
 	this->isEnabled = false;
 	this->isForward = false;
+	this->threadFreq = threadFreq;
+	this->bresenhamD = 0;
 }
 
 
@@ -84,6 +90,7 @@ void Stepgen::makePulses()
 
 	this->isEnabled = ((rxData->jointEnable & this->mask) != 0);
 
+#ifdef USE_FLOAT_DDS
 	if (this->isEnabled == true)  												// this Step generator is enables so make the pulses
 	{
 		this->frequencyCommand = rxData->jointFreqCmd[this->jointNumber];             // Get the latest frequency command via pointer to the data source
@@ -118,6 +125,32 @@ void Stepgen::makePulses()
             txData->jointFeedback[this->jointNumber] = this->rawCount;	
 		}
 	}
+#else
+	if(this->isEnabled) {
+		int32_t freq = rxData->jointFreqCmd[this->jointNumber];
+		if(freq < 0){
+			isForward = false;
+			freq = -freq;
+		} else {
+			isForward = true;
+		}
+		int32_t dy = freq;
+		int32_t dx = threadFreq;
+		if(bresenhamD > 0) {
+			// Update bresenham state.
+			bresenhamD -= 2 * dx;
+			// Set pins
+			directionPin->set(isForward);
+			stepPin->set(true);
+			// Update count
+			rawCount += isForward ? 1 : -1;
+			txData->jointFeedback[this->jointNumber] = this->rawCount;	
+		}
+		bresenhamD += 2 * dy;
+
+	}
+#endif
+
 
 
 }
