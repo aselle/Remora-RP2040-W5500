@@ -50,6 +50,8 @@ class Stepgen : public Module
     void makePulses();
     void stopPulses();
     void setEnabled(bool);
+
+    static void consolidated_stepgen();
 };
 
 
